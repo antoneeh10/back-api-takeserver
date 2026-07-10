@@ -1,0 +1,23 @@
+name = "back-api-takeserver"
+main = "src/index.ts"
+compatibility_date = "2026-07-10"
+
+# Menentukan environment variable (opsional)
+[vars]
+ENVIRONMENT = "production"
+
+# Jika Anda membutuhkan database KV (Key-Value) di masa depan, hapus tanda '#' di bawah:
+# [[kv_namespaces]]
+# binding = "TAKESERVER_KV"
+# id = "isi_dengan_id_kv_anda"
+
+# Jika Anda membutuhkan Database SQL D1, hapus tanda '#' di bawah:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "takeserver-db"
+# database_id = "isi_dengan_id_d1_anda"
+
+# Jika Anda membutuhkan Object Storage R2 (seperti AWS S3), hapus tanda '#' di bawah:
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "takeserver-bucket"

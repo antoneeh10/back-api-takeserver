@@ -1,6 +1,8 @@
 name = "back-api-takeserver"
 main = "src/worker.ts"
 compatibility_date = "2026-07-10"
+[unsafe]
+allow_unsafe_eval = true
 
 # Menentukan environment variable (opsional)
 [vars]

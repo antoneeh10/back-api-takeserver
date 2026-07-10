@@ -2,10 +2,14 @@ name = "back-api-takeserver"
 main = "src/worker.ts"
 compatibility_date = "2026-07-10"
 
-compatibility_flags = [ "allow_unsafe_eval" ]
-
 workers_dev = true
 preview_urls = true
+
+
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
 
 [vars]
 ENVIRONMENT = "production"

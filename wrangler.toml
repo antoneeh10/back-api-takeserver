@@ -5,11 +5,5 @@ compatibility_date = "2026-07-10"
 workers_dev = true
 preview_urls = true
 
-
-[[rules]]
-type = "CompiledWasm"
-globs = ["**/*.wasm"]
-fallthrough = true
-
 [vars]
 ENVIRONMENT = "production"

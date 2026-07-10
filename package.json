@@ -1,0 +1,19 @@
+{
+  "name": "back-api-takeserver",
+  "version": "1.0.0",
+  "description": "Backend API untuk TakeServer menggunakan Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "^4.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "typescript": "^5.4.5",
+    "wrangler": "^3.57.1"
+  }
+}

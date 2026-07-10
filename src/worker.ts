@@ -1,5 +1,5 @@
 export interface Env {
-  // Tentukan env variable atau binding KV/D1 Anda di sini jika ada di masa depan
+  // Tempat binding KV atau D1 jika ada di masa depan
 }
 
 export default {
@@ -7,7 +7,7 @@ export default {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
-    // Set CORS headers to allow requests from anywhere
+    // 1. Set CORS headers agar API bisa diakses dari frontend mana pun
     const corsHeaders: Record<string, string> = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
@@ -18,7 +18,7 @@ export default {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // Parse slug from path /api/:slug
+    // 2. Parse slug dari path /api/:slug
     const match = pathname.match(/^\/api\/([a-zA-Z0-9_\-]+)/);
     if (!match) {
       if (pathname === "/api" || pathname === "/api/") {
@@ -39,7 +39,7 @@ export default {
     const slug = match[1];
 
     try {
-      // Fetch API configuration from Firebase Firestore via REST API
+      // 3. Ambil konfigurasi routing API dari Firestore REST API
       const projectId = "mytest-project-is-nownow";
       const databaseId = "ai-studio-takeserverapihub-1daf5fbc-d6be-4e23-a7b8-75108bfa6e67";
       const docUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents/apis/${slug}`;
@@ -58,30 +58,31 @@ export default {
       const docData = await fsResponse.json() as any;
       const api = parseFirestoreFields(docData.fields);
 
+      // 4. Validasi Status API (Enabled/Disabled)
       if (!api.enabled) {
         return new Response(JSON.stringify({
           error: "API Disabled",
-          message: `The '${api.name}' API is currently disabled.`
+          message: `The '${api.name || slug}' API is currently disabled.`
         }), {
           status: 403,
           headers: { "Content-Type": "application/json", ...corsHeaders }
         });
       }
 
-      // Check method matches allowed methods
+      // 5. Validasi HTTP Method yang diizinkan
       const requestMethod = request.method.toUpperCase();
       const allowedMethods = ((api.method as string[]) || ["GET"]).map(m => m.toUpperCase());
       if (!allowedMethods.includes(requestMethod)) {
         return new Response(JSON.stringify({
           error: "Method Not Allowed",
-          message: `The '${api.name}' API only supports: ${allowedMethods.join(', ')}.`
+          message: `The '${api.name || slug}' API only supports: ${allowedMethods.join(', ')}.`
         }), {
           status: 405,
           headers: { "Content-Type": "application/json", ...corsHeaders }
         });
       }
 
-      // Track request analytics asynchronously
+      // 6. Jalankan Analytics secara Asynchronous (Background task)
       ctx.waitUntil((async () => {
         try {
           await fetch(`https://firestore.googleapis.com/v1/projects/${projectId}/databases/${databaseId}/documents:commit`, {
@@ -109,63 +110,22 @@ export default {
         }
       })());
 
-      // Execute custom JS code
-      if (api.code) {
-        const isWorkerCode = api.code.includes('export default') || api.code.includes('async fetch') || api.code.includes('Response(');
-        if (isWorkerCode) {
-          let processedCode = api.code;
-          if (processedCode.includes('export default')) {
-            processedCode = processedCode.replace(/export\s+default\s+/, 'return ');
-          } else {
-            processedCode = `return {\n  async fetch(request, env, ctx) {\n    ${processedCode}\n  }\n}`;
-          }
-
-          const workerModule = new Function(processedCode)();
-          const subResponse = await workerModule.fetch(request, env, ctx);
-          
-          const resHeaders = new Headers(subResponse.headers);
-          for (const [k, v] of Object.entries(corsHeaders)) {
-            resHeaders.set(k, v);
-          }
-          
-          return new Response(subResponse.body, {
-            status: subResponse.status,
-            statusText: subResponse.statusText,
-            headers: resHeaders
-          });
-        } else {
-          let responseBody: string | null = null;
-          let responseStatus = 200;
-          const dummyHeaders = new Headers(corsHeaders);
-          
-          const res = {
-            status(code: number) { responseStatus = code; return this; },
-            json(body: any) { responseBody = JSON.stringify(body); dummyHeaders.set("Content-Type", "application/json"); },
-            send(body: any) { responseBody = typeof body === "object" ? JSON.stringify(body) : String(body); }
-          };
-
-          const executor = new Function('req', 'res', 'fetch', `
-            return (async () => {
-              ${api.code}
-            })();
-          `);
-
-          await executor(request, res, fetch);
-
-          return new Response(responseBody || JSON.stringify({ status: "success", message: "Code executed." }), {
-            status: responseStatus,
-            headers: dummyHeaders
-          });
-        }
+      // 7. Proxy Fallback Mode (Meneruskan request ke target endpoint asli)
+      let targetUrl = api.endpoint as string;
+      if (!targetUrl) {
+        return new Response(JSON.stringify({ error: "Misconfigured", message: "Target endpoint URL is missing in Firestore." }), {
+          status: 502,
+          headers: { "Content-Type": "application/json", ...corsHeaders }
+        });
       }
 
-      // Proxy fallback mode
-      let targetUrl = api.endpoint as string;
+      // Ambil query params asli jika ada (?key=value)
       const searchStr = url.search;
       if (searchStr) {
         targetUrl += (targetUrl.includes('?') ? '&' : '?') + searchStr.substring(1);
       }
 
+      // Bersihkan header bawaan Cloudflare agar tidak konflik dengan server tujuan
       const exclude = ['host', 'connection', 'cookie', 'cf-connecting-ip', 'cf-ipcountry', 'cf-ray', 'cf-visitor', 'x-forwarded-for', 'x-real-ip'];
       const forwardHeaders = new Headers();
       for (const [k, v] of request.headers.entries()) {
@@ -174,12 +134,14 @@ export default {
         }
       }
 
+      // Tembakkan request ke server asli (Backend tujuan, VPS, atau API pihak ke-3)
       const proxyRes = await fetch(targetUrl, {
         method: request.method,
         headers: forwardHeaders,
         body: ['POST', 'PUT', 'PATCH'].includes(request.method) ? await request.arrayBuffer() : undefined
       });
 
+      // Salin response headers dari target dan suntik CORS
       const finalHeaders = new Headers(proxyRes.headers);
       for (const [k, v] of Object.entries(corsHeaders)) {
         finalHeaders.set(k, v);
@@ -202,6 +164,7 @@ export default {
   }
 };
 
+// Helper untuk membersihkan struktur data dari REST API Firestore
 function parseFirestoreFields(fields: any): Record<string, any> {
   const result: Record<string, any> = {};
   if (!fields) return result;

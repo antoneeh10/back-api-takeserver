@@ -1,10 +1,14 @@
+export interface Env {
+  // Tentukan env variable atau binding KV/D1 Anda di sini jika ada di masa depan
+}
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const pathname = url.pathname;
 
     // Set CORS headers to allow requests from anywhere
-    const corsHeaders = {
+    const corsHeaders: Record<string, string> = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, Origin, X-Requested-With, Accept",
@@ -51,7 +55,7 @@ export default {
         });
       }
 
-      const docData = await fsResponse.json();
+      const docData = await fsResponse.json() as any;
       const api = parseFirestoreFields(docData.fields);
 
       if (!api.enabled) {
@@ -66,7 +70,7 @@ export default {
 
       // Check method matches allowed methods
       const requestMethod = request.method.toUpperCase();
-      const allowedMethods = (api.method || ["GET"]).map(m => m.toUpperCase());
+      const allowedMethods = ((api.method as string[]) || ["GET"]).map(m => m.toUpperCase());
       if (!allowedMethods.includes(requestMethod)) {
         return new Response(JSON.stringify({
           error: "Method Not Allowed",
@@ -130,14 +134,14 @@ export default {
             headers: resHeaders
           });
         } else {
-          let responseBody = null;
+          let responseBody: string | null = null;
           let responseStatus = 200;
           const dummyHeaders = new Headers(corsHeaders);
           
           const res = {
-            status(code) { responseStatus = code; return this; },
-            json(body) { responseBody = JSON.stringify(body); dummyHeaders.set("Content-Type", "application/json"); },
-            send(body) { responseBody = typeof body === "object" ? JSON.stringify(body) : String(body); }
+            status(code: number) { responseStatus = code; return this; },
+            json(body: any) { responseBody = JSON.stringify(body); dummyHeaders.set("Content-Type", "application/json"); },
+            send(body: any) { responseBody = typeof body === "object" ? JSON.stringify(body) : String(body); }
           };
 
           const executor = new Function('req', 'res', 'fetch', `
@@ -156,7 +160,7 @@ export default {
       }
 
       // Proxy fallback mode
-      let targetUrl = api.endpoint;
+      let targetUrl = api.endpoint as string;
       const searchStr = url.search;
       if (searchStr) {
         targetUrl += (targetUrl.includes('?') ? '&' : '?') + searchStr.substring(1);
@@ -186,7 +190,7 @@ export default {
         headers: finalHeaders
       });
 
-    } catch (err) {
+    } catch (err: any) {
       return new Response(JSON.stringify({
         error: "Gateway Execution Error",
         message: err.message
@@ -198,27 +202,31 @@ export default {
   }
 };
 
-function parseFirestoreFields(fields: any) {
-  const result: any = {};
+function parseFirestoreFields(fields: any): Record<string, any> {
+  const result: Record<string, any> = {};
   if (!fields) return result;
-  for (const [key, value] of Object.entries(fields) as any) {
-    if ('stringValue' in value) {
-      result[key] = value.stringValue;
-    } else if ('booleanValue' in value) {
-      result[key] = value.booleanValue;
-    } else if ('integerValue' in value) {
-      result[key] = parseInt(value.integerValue, 10);
-    } else if ('doubleValue' in value) {
-      result[key] = parseFloat(value.doubleValue);
-    } else if ('arrayValue' in value) {
-      const values = value.arrayValue.values || [];
+  
+  for (const [key, value] of Object.entries(fields)) {
+    const val = value as any;
+    if (!val) continue;
+
+    if ('stringValue' in val) {
+      result[key] = val.stringValue;
+    } else if ('booleanValue' in val) {
+      result[key] = val.booleanValue;
+    } else if ('integerValue' in val) {
+      result[key] = parseInt(val.integerValue, 10);
+    } else if ('doubleValue' in val) {
+      result[key] = parseFloat(val.doubleValue);
+    } else if ('arrayValue' in val) {
+      const values = val.arrayValue.values || [];
       result[key] = values.map((v: any) => {
         if ('stringValue' in v) return v.stringValue;
         if ('booleanValue' in v) return v.booleanValue;
         return v;
       });
-    } else if ('mapValue' in value) {
-      result[key] = parseFirestoreFields(value.mapValue.fields);
+    } else if ('mapValue' in val) {
+      result[key] = parseFirestoreFields(val.mapValue.fields);
     }
   }
   return result;

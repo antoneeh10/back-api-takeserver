@@ -22,7 +22,7 @@ Structure:
 
 ```
 api/
-├── add your api here
+├── [folder] upload your api here
 ```
 
 ---

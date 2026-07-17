@@ -23,6 +23,8 @@ Structure:
 ```
 api/
 ├── [folder] upload your api here
+├── routes
+├── controllers
 ```
 
 ---

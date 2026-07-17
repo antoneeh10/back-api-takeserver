@@ -18,16 +18,11 @@ Before creating a new API, make sure you have:
 
 # Project Structure
 
-Example structure:
+Structure:
 
 ```
-src/
-├── routes/
-├── controllers/
-├── services/
-├── middleware/
-├── utils/
-└── index.ts
+api/
+├── add your api here
 ```
 
 ---

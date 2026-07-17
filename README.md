@@ -31,13 +31,13 @@ Click the **Fork** button on GitHub.
 ### 2. Clone Your Fork
 
 ```bash
-git clone https://github.com/your-username/takeserver-api-contribute.git
+git clone https://github.com/antoneeh10/back-api-takeserver.git
 ```
 
 ### 3. Go to the Project Folder
 
 ```bash
-cd takeserver-api-contribute
+cd back-api-takeserver
 ```
 
 ### 4. Install Dependencies
